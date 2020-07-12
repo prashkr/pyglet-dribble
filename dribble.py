@@ -2,13 +2,16 @@ import pyglet
 from pyglet.window import mouse
 
 
-G = -3000  # 10 m/s2
+G = -3000
 SCORE = 0
-WINDOW_HEIGHT = 800
-WINDOW_WIDTH = 600
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
 BALL_CENTER_X = 400
 BALL_CENTER_Y = 300
 BALL_SCALE = 0.25
+IMPULSIVE_FORCE = 60000
+IMPULSE_DURATION = 0.02  # 20 ms
+WINDOW_REFRESH_RATE = 1 / 120
 
 
 def center_image(image):
@@ -56,7 +59,7 @@ class Ball(pyglet.sprite.Sprite):
         self.mass = 1  # 1 kg
         self.damping_factor = 0.8
         self.score = 0
-        self.upward_velocity = 1000
+        self.velocity_after_force = 800
         self.radius = self.compute_radius()
         self.score = score
 
@@ -74,10 +77,12 @@ class Ball(pyglet.sprite.Sprite):
             v = u + at
 
         """
+        # print("radius: ", self.radius)
+        # print("velocities: ", (self.velocity_x, self.velocity_y))
         self.x += self.velocity_x * dt
         self.y += self.velocity_y * dt + 1 / 2 * G * dt ** 2
         self.velocity_y = self.velocity_y + G * dt
-        self.check_wall_collision_and_update_speed()
+        self.check_wall_collision_and_update_state()
 
     def get_bounding_box(self):
         lower_left = (self.x - self.width // 2, self.y - self.height // 2)
@@ -96,17 +101,36 @@ class Ball(pyglet.sprite.Sprite):
             return True
         return False
 
-    def check_wall_collision_and_update_speed(self):
-        window_y_bounds = (0, 800)
+    def check_wall_collision_and_update_state(self):
+        window_x_bounds = (0, WINDOW_WIDTH)
+        window_y_bounds = (0, WINDOW_HEIGHT)
         lower_left, top_left, top_right, lower_right = self.get_bounding_box()
+        # print("bounding_box: ", self.get_bounding_box())
 
-        if lower_left[1] <= window_y_bounds[0]:
-            print("collision with bottom wall")
+        collision_with_ground = lower_left[1] <= window_y_bounds[0]
+        collision_with_left_wall = lower_left[0] <= window_x_bounds[0]
+        collision_with_right_wall = lower_right[0] >= window_x_bounds[1]
+
+        if collision_with_ground:
+            print("collision with ground")
             self.velocity_y = -self.velocity_y * self.damping_factor
-            self.y = self.height // 2 + window_y_bounds[0]
+            self.y = window_y_bounds[0] + self.height // 2
             self.score.reset()
 
-    def apply_force(self, x, y, F_x=0, F_y=60000):
+        elif collision_with_left_wall:
+            print("collision with left wall")
+            self.velocity_x = -self.velocity_x
+            self.x = window_x_bounds[0] + self.width // 2
+
+        elif collision_with_right_wall:
+            print("collision with right wall")
+            self.velocity_x = -self.velocity_x
+            self.x = window_x_bounds[1] - self.width // 2
+
+    def x_distance_from_center(self, coordinate):
+        return self.x - coordinate[0]
+
+    def apply_force(self, x, y, F_x=0, F_y=IMPULSIVE_FORCE):
         """
         impulse = change in momentum i.e. F * dt = m * (vf - vi)
 
@@ -115,13 +139,16 @@ class Ball(pyglet.sprite.Sprite):
         """
         if self.is_coord_inside_ball(coordinate=(x, y)):
             print("coordinate_inside_ball")
-            self.velocity_y = self.upward_velocity
+            x_distance = self.x_distance_from_center(coordinate=(x, y))
+            self.velocity_x = self.velocity_after_force * (x_distance / self.radius)
+            self.velocity_y = self.velocity_after_force
+            print("velocities: ", (self.velocity_x, self.velocity_y))
             self.score.add(points=1)
 
 
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
-        super().__init__(WINDOW_HEIGHT, WINDOW_WIDTH)
+        super().__init__(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.background_img = pyglet.resource.image('res/background.jpg')
         center_image(self.background_img)
         self.score = Score()
@@ -145,5 +172,5 @@ class Window(pyglet.window.Window):
 
 if __name__ == '__main__':
     window = Window()
-    pyglet.clock.schedule_interval(window.update, 1 / 120)
+    pyglet.clock.schedule_interval(window.update, WINDOW_REFRESH_RATE)
     pyglet.app.run()
