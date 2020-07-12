@@ -92,20 +92,12 @@ class Ball(pyglet.sprite.Sprite):
         return lower_left, top_left, top_right, lower_right
 
     def is_coord_inside_ball(self, coordinate):
-        print("center: ", (self.x, self.y), ", click point: ", coordinate)
-        error = 0
-        distance_from_center_square = (coordinate[0] - self.x) ** 2 + (coordinate[1] - self.y) ** 2
-        radius_square = (self.radius + error) ** 2
-        print("distance_from_center_square: ", distance_from_center_square, ", radius_square: ", radius_square)
-        if distance_from_center_square <= radius_square:
-            return True
-        return False
+        return (coordinate[0] - self.x) ** 2 + (coordinate[1] - self.y) ** 2 <= self.radius ** 2
 
     def check_wall_collision_and_update_state(self):
         window_x_bounds = (0, WINDOW_WIDTH)
         window_y_bounds = (0, WINDOW_HEIGHT)
         lower_left, top_left, top_right, lower_right = self.get_bounding_box()
-        # print("bounding_box: ", self.get_bounding_box())
 
         collision_with_ground = lower_left[1] <= window_y_bounds[0]
         collision_with_left_wall = lower_left[0] <= window_x_bounds[0]
@@ -119,12 +111,12 @@ class Ball(pyglet.sprite.Sprite):
 
         elif collision_with_left_wall:
             print("collision with left wall")
-            self.velocity_x = -self.velocity_x
+            self.velocity_x = -self.velocity_x * self.damping_factor
             self.x = window_x_bounds[0] + self.width // 2
 
         elif collision_with_right_wall:
             print("collision with right wall")
-            self.velocity_x = -self.velocity_x
+            self.velocity_x = -self.velocity_x * self.damping_factor
             self.x = window_x_bounds[1] - self.width // 2
 
     def x_distance_from_center(self, coordinate):
@@ -149,14 +141,11 @@ class Ball(pyglet.sprite.Sprite):
 class Window(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super().__init__(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.background_img = pyglet.resource.image('res/background.jpg')
-        center_image(self.background_img)
         self.score = Score()
         self.ball = Ball(file_name='res/ball.png', score=self.score)
 
     def on_draw(self):
         window.clear()
-        # self.background_img.blit(0, 0)
         self.ball.draw()
         self.score.draw()
 
